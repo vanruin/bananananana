@@ -1,7 +1,8 @@
 fastapi
 uvicorn
-tensorflow
+tensorflow-cpu
 joblib
 numpy
 requests
-python-multipart
+pillow
+scikit-learn
