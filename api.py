@@ -8,7 +8,9 @@ from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from tensorflow.keras.preprocessing import image
 
-# Load KNN model
+# =========================
+# Load Models
+# =========================
 model_path = "knn_banana_disease.pkl"
 if not os.path.exists(model_path):
     raise FileNotFoundError("❌ Trained KNN model not found! Please run training script first.")
@@ -16,8 +18,10 @@ if not os.path.exists(model_path):
 print("📥 Loading saved KNN model...")
 knn = joblib.load(model_path)
 
-# Load base model (MobileNetV2 feature extractor)
-base_model = tf.keras.applications.MobileNetV2(weights="imagenet", include_top=False, pooling="avg")
+# MobileNetV2 for feature extraction
+base_model = tf.keras.applications.MobileNetV2(
+    weights="imagenet", include_top=False, pooling="avg"
+)
 
 # Class labels
 class_labels = [
@@ -27,16 +31,19 @@ class_labels = [
     " Banana Insect Pest Disease",
     " Banana Moko Disease",
     " Banana Panama Disease",
-    " Banana Yellow Sigatoka Disease"
+    " Banana Yellow Sigatoka Disease",
 ]
 
 # FastAPI app
 app = FastAPI(title="Banana Disease Detection API")
 
-# Path to Downloads folder
+# Downloads folder
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "Download")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# =========================
+# Helper Functions
+# =========================
 def preprocess_image(img_path):
     """Load and preprocess an image for MobileNetV2 feature extraction."""
     img = image.load_img(img_path, target_size=(224, 224))
@@ -53,32 +60,40 @@ def predict_disease(img_path):
     confidence = np.max(probs) * 100
     return class_labels[pred_class], confidence, probs
 
+# =========================
+# API Endpoint
+# =========================
 @app.get("/predict")
-def predict(image_url: str = Query(..., description="URL of the image to scan")):
+def predict(image_url: str = Query(..., description="Public URL of the image to scan")):
     try:
-       
-        response = requests.get(image_url, stream=True)
-        if response.status_code != 200:
-            return JSONResponse(status_code=400, content={"error": "Failed to download image"})
+        # Add headers to bypass restrictions (e.g. Imgur)
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(image_url, stream=True, headers=headers, timeout=20)
 
+        if response.status_code != 200:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Failed to download image. Status {response.status_code}"},
+            )
+
+        # Save temp file
         temp_filename = os.path.join(DOWNLOAD_DIR, f"banana_{uuid.uuid4().hex}.jpg")
         with open(temp_filename, "wb") as f:
             f.write(response.content)
 
-       
+        # Run prediction
         disease, conf, probs = predict_disease(temp_filename)
 
-     
+        # Clean up temp file
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
-        
         return {
             "predicted_disease": disease.strip(),
             "confidence": f"{conf:.2f}%",
             "class_probabilities": {
                 label.strip(): f"{p*100:.2f}%" for label, p in zip(class_labels, probs)
-            }
+            },
         }
 
     except Exception as e:
