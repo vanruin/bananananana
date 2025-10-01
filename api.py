@@ -8,9 +8,7 @@ from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from tensorflow.keras.preprocessing import image
 
-# =========================
-# Load Models
-# =========================
+
 model_path = "knn_banana_disease.pkl"
 if not os.path.exists(model_path):
     raise FileNotFoundError("❌ Trained KNN model not found! Please run training script first.")
@@ -18,12 +16,12 @@ if not os.path.exists(model_path):
 print("📥 Loading saved KNN model...")
 knn = joblib.load(model_path)
 
-# MobileNetV2 for feature extraction
+# MobileNetV2 (ayaw saba hehehe)
 base_model = tf.keras.applications.MobileNetV2(
     weights="imagenet", include_top=False, pooling="avg"
 )
 
-# Class labels
+
 class_labels = [
     " Banana Black Sigatoka Disease",
     " Banana Bract Mosaic Virus Disease",
@@ -34,16 +32,14 @@ class_labels = [
     " Banana Yellow Sigatoka Disease",
 ]
 
-# FastAPI app
+
 app = FastAPI(title="Banana Disease Detection API")
 
-# Downloads folder
+
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "Download")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# =========================
-# Helper Functions
-# =========================
+
 def preprocess_image(img_path):
     """Load and preprocess an image for MobileNetV2 feature extraction."""
     img = image.load_img(img_path, target_size=(224, 224))
@@ -60,9 +56,7 @@ def predict_disease(img_path):
     confidence = np.max(probs) * 100
     return class_labels[pred_class], confidence, probs
 
-# =========================
-# API Endpoint
-# =========================
+
 @app.get("/predict")
 def predict(image_url: str = Query(..., description="Public URL of the image to scan")):
     try:
@@ -76,15 +70,15 @@ def predict(image_url: str = Query(..., description="Public URL of the image to 
                 content={"error": f"Failed to download image. Status {response.status_code}"},
             )
 
-        # Save temp file
+       
         temp_filename = os.path.join(DOWNLOAD_DIR, f"banana_{uuid.uuid4().hex}.jpg")
         with open(temp_filename, "wb") as f:
             f.write(response.content)
 
-        # Run prediction
+       
         disease, conf, probs = predict_disease(temp_filename)
 
-        # Clean up temp file
+    
         if os.path.exists(temp_filename):
             os.remove(temp_filename)
 
@@ -98,3 +92,4 @@ def predict(image_url: str = Query(..., description="Public URL of the image to 
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
