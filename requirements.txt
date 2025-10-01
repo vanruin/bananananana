@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+tensorflow
+joblib
+numpy
+requests
+python-multipart
